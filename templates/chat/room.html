@@ -398,8 +398,17 @@
         const input = document.getElementById('message-text');
         const content = input.value.trim();
         if (content) {
+            // Store container height to prevent expansion
+            const containerHeight = messageList.offsetHeight;
+            messageList.style.height = `${containerHeight}px`;
+            
             sendMessage(content);
             input.value = '';
+            
+            // Remove fixed height after a short delay
+            setTimeout(() => {
+                messageList.style.height = '';
+            }, 100);
         }
     });
 
@@ -664,7 +673,7 @@
         sendMessage(url, 'sticker');
     }
 
-    // Modify the periodic fetch to not auto-scroll
+    // Modify the periodic fetch to not auto-scroll and prevent expansion
     setInterval(async () => {
         try {
             const response = await fetch(`/room/${roomId}/messages/`);
@@ -676,6 +685,9 @@
                 const scrollPosition = messageList.scrollTop;
                 const oldScrollHeight = messageList.scrollHeight;
                 
+                // Clear existing messages but keep the container height
+                const containerHeight = messageList.offsetHeight;
+                messageList.style.height = `${containerHeight}px`;
                 messageList.innerHTML = ''; // Clear existing messages
                 
                 // Append all messages
@@ -688,6 +700,9 @@
                 // Restore scroll position, adjusted for new content
                 const newScrollHeight = messageList.scrollHeight;
                 messageList.scrollTop = scrollPosition + (newScrollHeight - oldScrollHeight);
+                
+                // Remove the fixed height after rendering
+                messageList.style.height = '';
             }
         } catch (error) {
             console.error('Error fetching messages:', error);
@@ -837,6 +852,22 @@
 </script>
 
 <style>
+    .chat-container {
+        height: 80vh;
+        display: flex;
+        flex-direction: column;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        background-color: var(--card-bg);
+    }
+
+    .messages {
+        flex: 1;
+        height: calc(100% - 100px);
+        overflow-y: auto;
+        padding: 20px;
+    }
+
     .chat-image {
         max-width: 200px;
         border-radius: 8px;
@@ -868,9 +899,21 @@
     .message {
         position: relative;
         margin-bottom: 1rem;
+        padding: 10px;
+        border-radius: 10px;
+        max-width: 70%;
         transform: translateX(0);
         transition: transform 0.3s ease-out;
         touch-action: pan-y pinch-zoom;
+    }
+
+    .message.sent {
+        background-color: var(--message-own-bg, #dcf8c6);
+        margin-left: auto;
+    }
+
+    .message.received {
+        background-color: var(--message-bg, #f1f0f0);
     }
 
     .message::after {
@@ -974,6 +1017,12 @@
         width: 100%;
     }
 
+    .message-input {
+        padding: 20px;
+        background-color: var(--card-bg);
+        border-top: 1px solid var(--border-color);
+    }
+
     @media (prefers-color-scheme: dark) {
         .replied-message {
             background: rgba(0,0,0,0.7);
@@ -995,15 +1044,6 @@
 
         #reply-container .btn-close {
             filter: invert(1);
-        }
-
-        #scroll-to-bottom {
-            background-color: #343a40;
-            color: #fff;
-        }
-
-        #scroll-to-bottom:hover {
-            background-color: #495057;
         }
 
         .message-options {
