@@ -23,17 +23,11 @@
 <div class="row">
     <div class="col-md-9">
         <div class="chat-container">
-            <div class="message-list" id="message-list">
+            <div id="message-list" class="messages">
                 {% for message in messages %}
                     <div class="message {% if message.sender == user %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}">
                         <div class="message-header">
                             <small class="text-muted">{{ message.sender.username }}</small>
-                            {% if message.reply_to %}
-                                <div class="replied-message">
-                                    <small class="text-muted">Replying to {{ message.reply_to.sender.username }}</small>
-                                    <p class="mb-0">{{ message.reply_to.content|truncatechars:50 }}</p>
-                                </div>
-                            {% endif %}
                         </div>
                         <div class="message-content" onclick="showMessageOptions(this)">
                             {% if message.message_type == 'text' %}
@@ -72,9 +66,6 @@
                     </div>
                 {% endfor %}
             </div>
-            <button id="scroll-to-bottom" class="btn btn-primary btn-sm rounded-circle" style="display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background-color: #fff; border: none; color: #007bff;">
-                <i class="fas fa-arrow-down"></i>
-            </button>
             <div class="message-input">
                 <div id="reply-container" style="display: none;" class="bg-light p-2 mb-2 rounded">
                     <div class="d-flex justify-content-between align-items-center">
@@ -171,7 +162,6 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let lastMessageCount = 0;
-    let userHasScrolled = false;
     let touchStartX = 0;
     let touchStartY = 0;
     let currentSwipedMessage = null;
@@ -180,70 +170,52 @@
     const imagePreviewModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
     const previewImage = document.getElementById('previewImage');
     const messageList = document.getElementById('message-list');
-    const scrollToBottomBtn = document.getElementById('scroll-to-bottom');
-
-    function isAtBottom() {
-        const threshold = 100; // pixels from bottom to consider "at bottom"
-        return messageList.scrollHeight - messageList.clientHeight - messageList.scrollTop <= threshold;
-    }
-
-    function scrollToBottom(force = false) {
-        if (force || !userHasScrolled || isAtBottom()) {
-            messageList.scrollTop = messageList.scrollHeight;
-        }
-    }
-
-    // Show/hide scroll button based on scroll position
-    messageList.addEventListener('scroll', () => {
-        userHasScrolled = true;
-        scrollToBottomBtn.style.display = isAtBottom() ? 'none' : 'block';
-    });
-
-    // Scroll to bottom when button is clicked
-    scrollToBottomBtn.addEventListener('click', () => {
-        scrollToBottom(true);
-        userHasScrolled = false;
-    });
 
     function formatTime(date) {
         return new Date(date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     }
 
     function appendMessage(message) {
-        const wasAtBottom = isAtBottom();
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${message.sender === '{{ user.username }}' ? 'sent' : 'received'}`;
+        messageDiv.dataset.messageId = message.id;
+        
+        // Create message header
+        const messageHeader = document.createElement('div');
+        messageHeader.className = 'message-header';
         
         const senderSpan = document.createElement('small');
         senderSpan.className = 'text-muted';
         senderSpan.textContent = message.sender;
-        messageDiv.appendChild(senderSpan);
+        messageHeader.appendChild(senderSpan);
+        messageDiv.appendChild(messageHeader);
+        
+        // Create message content
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.onclick = function() { showMessageOptions(this); };
 
         if (message.type === 'text') {
             const content = document.createElement('p');
             content.className = 'mb-0';
             content.textContent = message.content;
-            messageDiv.appendChild(content);
-        } else if ((message.type === 'image' || message.type === 'sticker') && message.file_url) {
+            contentDiv.appendChild(content);
+        } else if (message.type === 'image' && message.file_url) {
             const img = document.createElement('img');
             img.src = message.file_url;
-            img.className = message.type === 'sticker' ? 'sticker' : 'img-fluid chat-image';
-            img.alt = message.type === 'sticker' ? 'Sticker' : 'Shared image';
-            if (message.type === 'image') {
-                img.style.cursor = 'pointer';
-                img.onclick = function() {
-                    previewImage.src = this.src;
-                    imagePreviewModal.show();
-                };
-            }
+            img.className = 'img-fluid chat-image';
+            img.alt = 'Shared image';
+            img.style.cursor = 'pointer';
+            img.onclick = function(e) {
+                e.stopPropagation(); // Prevent triggering showMessageOptions
+                previewImage.src = this.src;
+                imagePreviewModal.show();
+            };
             img.onerror = function() {
                 this.onerror = null;
-                const errorText = document.createElement('p');
-                errorText.className = 'text-muted';
-                errorText.textContent = message.type === 'sticker' ? '[Sticker not available]' : '[Image not available]';
-                this.parentNode.replaceChild(errorText, this);
+                this.src = '/static/images/broken-image.png';
             };
-            messageDiv.appendChild(img);
+            contentDiv.appendChild(img);
         } else if (message.type === 'voice' && message.file_url) {
             const audio = document.createElement('audio');
             audio.controls = true;
@@ -257,24 +229,53 @@
                 errorText.textContent = '[Voice message not available]';
                 this.parentNode.replaceChild(errorText, this);
             };
-            messageDiv.appendChild(audio);
+            contentDiv.appendChild(audio);
+        } else if (message.type === 'sticker' && message.file_url) {
+            const img = document.createElement('img');
+            img.src = message.file_url;
+            img.className = 'sticker';
+            img.alt = 'Sticker';
+            img.onerror = function() {
+                this.onerror = null;
+                this.src = '/static/images/broken-sticker.png';
+            };
+            contentDiv.appendChild(img);
         } else {
             // Handle missing media
             const errorText = document.createElement('p');
             errorText.className = 'text-muted';
             errorText.textContent = `[${message.type} not available]`;
-            messageDiv.appendChild(errorText);
+            contentDiv.appendChild(errorText);
         }
-
+        
+        messageDiv.appendChild(contentDiv);
+        
+        // Create message footer
+        const footerDiv = document.createElement('div');
+        footerDiv.className = 'message-footer';
+        
         const timeSpan = document.createElement('small');
         timeSpan.className = 'text-muted';
         timeSpan.textContent = formatTime(message.created_at);
-        messageDiv.appendChild(timeSpan);
+        footerDiv.appendChild(timeSpan);
+        messageDiv.appendChild(footerDiv);
+        
+        // Create message options
+        const optionsDiv = document.createElement('div');
+        optionsDiv.className = 'message-options';
+        optionsDiv.style.display = 'none';
+        
+        const replyBtn = document.createElement('button');
+        replyBtn.className = 'btn btn-sm btn-outline-secondary';
+        replyBtn.innerHTML = '<i class="fas fa-reply"></i> Reply';
+        replyBtn.onclick = function() {
+            replyToMessage(message.id, message.sender);
+        };
+        
+        optionsDiv.appendChild(replyBtn);
+        messageDiv.appendChild(optionsDiv);
 
         messageList.appendChild(messageDiv);
-        if (wasAtBottom) {
-            scrollToBottom();
-        }
     }
 
     // Add click handler for existing images
@@ -423,12 +424,26 @@
         const file = e.target.files[0];
         if (file) {
             try {
-                console.log('Starting file upload:', file.name);  // Debug log
+                console.log('Starting file upload:', file.name, 'Size:', file.size, 'Type:', file.type);
+                
+                // Create a more descriptive name
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const newFileName = `image_${timestamp}${file.name.substring(file.name.lastIndexOf('.'))}`;
+                
+                // Create a new file object with the modified name
+                const renamedFile = new File([file], newFileName, {
+                    type: file.type,
+                    lastModified: file.lastModified
+                });
                 
                 const formData = new FormData();
-                formData.append('file', file);
+                formData.append('file', renamedFile);
                 formData.append('type', 'image');
-                formData.append('content', file.name);
+                formData.append('content', renamedFile.name);
+                
+                if (currentReplyTo) {
+                    formData.append('reply_to', currentReplyTo);
+                }
 
                 const response = await fetch(`/room/${roomId}/send/`, {
                     method: 'POST',
@@ -440,7 +455,7 @@
                 });
 
                 const responseText = await response.text();
-                console.log('Server response text:', responseText);  // Debug log
+                console.log('Server response text:', responseText);
 
                 let data;
                 try {
@@ -454,16 +469,20 @@
                     throw new Error(data.error || `HTTP error! status: ${response.status}`);
                 }
 
-                console.log('Upload response:', data);  // Debug log
+                console.log('Upload response:', data);
 
-                if (data.status === 'success' && data.file_url) {
+                if (data.status === 'success') {
                     appendMessage({
+                        id: data.message_id,
                         sender: '{{ user.username }}',
-                        content: file.name,
+                        content: renamedFile.name,
                         type: 'image',
                         file_url: data.file_url,
-                        created_at: new Date()
+                        created_at: data.created_at
                     });
+                    
+                    // Clear reply if there was one
+                    cancelReply();
                 } else {
                     throw new Error(data.error || 'Failed to upload image');
                 }
@@ -478,29 +497,117 @@
     document.getElementById('voice-record').addEventListener('click', async () => {
         if (!mediaRecorder) {
             try {
+                console.log('Requesting microphone access...');
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                console.log('Microphone access granted');
+                
                 mediaRecorder = new MediaRecorder(stream);
                 audioChunks = [];
 
                 mediaRecorder.addEventListener('dataavailable', (e) => {
+                    console.log('Audio data available, size:', e.data.size);
                     audioChunks.push(e.data);
                 });
 
                 mediaRecorder.addEventListener('stop', async () => {
-                    const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
-                    await sendMessage('Voice message', 'voice', audioBlob);
+                    console.log('Recording stopped, chunks:', audioChunks.length);
+                    
+                    if (audioChunks.length === 0 || audioChunks[0].size === 0) {
+                        console.error('No audio data recorded');
+                        alert('No audio was recorded. Please try again.');
+                        mediaRecorder = null;
+                        audioChunks = [];
+                        return;
+                    }
+                    
+                    try {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        console.log('Audio blob created, size:', audioBlob.size);
+                        
+                        // Create a more descriptive name
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const fileName = `voice_${timestamp}.webm`;
+                        
+                        // Create a file from the blob
+                        const audioFile = new File([audioBlob], fileName, { 
+                            type: 'audio/webm',
+                            lastModified: Date.now()
+                        });
+                        
+                        const formData = new FormData();
+                        formData.append('file', audioFile);
+                        formData.append('type', 'voice');
+                        formData.append('content', 'Voice message');
+                        
+                        if (currentReplyTo) {
+                            formData.append('reply_to', currentReplyTo);
+                        }
+                        
+                        console.log('Sending voice message, file name:', fileName);
+                        
+                        const response = await fetch(`/room/${roomId}/send/`, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': '{{ csrf_token }}',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            body: formData
+                        });
+                        
+                        const responseText = await response.text();
+                        console.log('Server response for voice:', responseText);
+                        
+                        let data;
+                        try {
+                            data = JSON.parse(responseText);
+                        } catch (error) {
+                            console.error('Error parsing voice response:', error);
+                            throw new Error('Invalid server response for voice message');
+                        }
+                        
+                        if (!response.ok) {
+                            throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                        }
+                        
+                        if (data.status === 'success') {
+                            appendMessage({
+                                id: data.message_id,
+                                sender: '{{ user.username }}',
+                                content: 'Voice message',
+                                type: 'voice',
+                                file_url: data.file_url,
+                                created_at: data.created_at
+                            });
+                            
+                            // Clear reply if there was one
+                            cancelReply();
+                        } else {
+                            throw new Error(data.error || 'Failed to send voice message');
+                        }
+                        
+                    } catch (error) {
+                        console.error('Error sending voice message:', error);
+                        alert(`Failed to send voice message: ${error.message}`);
+                    }
+                    
                     mediaRecorder = null;
                     audioChunks = [];
                 });
 
+                console.log('Starting recording...');
                 mediaRecorder.start();
                 document.getElementById('voice-record').innerHTML = '<i class="fas fa-stop"></i> Stop';
             } catch (error) {
                 console.error('Error accessing microphone:', error);
+                alert('Could not access your microphone. Please check your browser permissions.');
             }
         } else {
+            console.log('Stopping recording...');
             mediaRecorder.stop();
             document.getElementById('voice-record').innerHTML = '<i class="fas fa-microphone"></i> Voice';
+            
+            // Also stop the stream tracks
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
         }
     });
 
@@ -557,7 +664,7 @@
         sendMessage(url, 'sticker');
     }
 
-    // Modify the periodic fetch to preserve scroll position
+    // Modify the periodic fetch to not auto-scroll
     setInterval(async () => {
         try {
             const response = await fetch(`/room/${roomId}/messages/`);
@@ -565,23 +672,29 @@
             
             // Only update if there are new messages
             if (data.messages.length !== lastMessageCount) {
-                const wasAtBottom = isAtBottom();
-                const messageList = document.getElementById('message-list');
-                messageList.innerHTML = '';
-                data.messages.forEach(appendMessage);
+                // Store scroll position
+                const scrollPosition = messageList.scrollTop;
+                const oldScrollHeight = messageList.scrollHeight;
+                
+                messageList.innerHTML = ''; // Clear existing messages
+                
+                // Append all messages
+                data.messages.forEach(message => {
+                    appendMessage(message);
+                });
+                
                 lastMessageCount = data.messages.length;
                 
-                if (wasAtBottom) {
-                    scrollToBottom();
-                }
+                // Restore scroll position, adjusted for new content
+                const newScrollHeight = messageList.scrollHeight;
+                messageList.scrollTop = scrollPosition + (newScrollHeight - oldScrollHeight);
             }
         } catch (error) {
             console.error('Error fetching messages:', error);
         }
     }, 5000);
-
-    // Initial scroll to bottom and message count
-    scrollToBottom(true);
+    
+    // Initial message count (removed initial scroll to bottom)
     lastMessageCount = document.querySelectorAll('.message').length;
 
     // Invite functionality
