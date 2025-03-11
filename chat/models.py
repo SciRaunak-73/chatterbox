@@ -33,7 +33,7 @@ class Message(models.Model):
     content = models.TextField()
     encrypted_content = models.TextField(blank=True)
     message_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='text')
-    file = models.FileField(upload_to='chat_files/', null=True, blank=True)
+    file = models.FileField(upload_to='chat_files/%Y/%m/%d/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     reply_to = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='replies')
 
@@ -52,6 +52,15 @@ class Message(models.Model):
             return f.decrypt(self.encrypted_content.encode()).decode()
         except Exception as e:
             return f"[Error: Unable to decrypt message]"
+
+    def delete(self, *args, **kwargs):
+        # Delete the file from storage when the message is deleted
+        if self.file:
+            try:
+                self.file.delete(save=False)
+            except Exception as e:
+                print(f"Error deleting file for message {self.id}: {str(e)}")
+        super().delete(*args, **kwargs)
 
     @classmethod
     def fix_encryption(cls):

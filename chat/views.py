@@ -125,6 +125,11 @@ def send_message(request, room_id):
                 if file.size > 20 * 1024 * 1024:  # 20MB limit
                     return JsonResponse({'error': f'File too large. Maximum size is 20MB. Your file is {round(file.size/1024/1024, 2)}MB'}, status=400)
 
+                # Generate a unique filename
+                file_extension = os.path.splitext(file.name)[1]
+                unique_filename = f"{message_type}_{timezone.now().strftime('%Y%m%d_%H%M%S')}{file_extension}"
+                file.name = unique_filename
+
             # Handle JSON data
             elif request.content_type == 'application/json':
                 data = json.loads(request.body)
@@ -136,11 +141,6 @@ def send_message(request, room_id):
                 content = request.POST.get('content', '')
                 message_type = request.POST.get('type', 'text')
                 reply_to_id = request.POST.get('reply_to')
-
-            # Create media directory if needed
-            if file:
-                media_root = os.path.join(settings.MEDIA_ROOT, 'chat_files')
-                os.makedirs(media_root, exist_ok=True)
 
             # Get reply_to message if provided
             reply_to = None
@@ -176,7 +176,11 @@ def send_message(request, room_id):
             if file and message.file:
                 try:
                     response_data['file_url'] = message.file.url
-                except ValueError:
+                except ValueError as e:
+                    print(f"Error getting file URL: {str(e)}")
+                    response_data['file_url'] = None
+                except Exception as e:
+                    print(f"Unexpected error with file URL: {str(e)}")
                     response_data['file_url'] = None
 
             return JsonResponse(response_data)
