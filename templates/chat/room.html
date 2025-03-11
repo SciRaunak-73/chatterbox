@@ -650,22 +650,53 @@
         const message = document.getElementById('scheduled-message').value;
         const time = document.getElementById('scheduled-time').value;
 
+        if (!message || !time) {
+            alert('Please enter both a message and a scheduled time');
+            return;
+        }
+
+        // Check if the scheduled time is in the past
+        const scheduledTime = new Date(time);
+        const now = new Date();
+        if (scheduledTime <= now) {
+            alert('Cannot schedule messages in the past');
+            return;
+        }
+
         try {
+            console.log('Scheduling message:', message, 'for time:', time);
+            
             const response = await fetch(`/room/${roomId}/schedule/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: `content=${encodeURIComponent(message)}&scheduled_time=${encodeURIComponent(time)}`
             });
+            
+            const responseText = await response.text();
+            console.log('Schedule response:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (error) {
+                console.error('Error parsing response:', error);
+                throw new Error('Invalid server response');
+            }
+            
             if (response.ok) {
                 document.getElementById('scheduled-message').value = '';
                 document.getElementById('scheduled-time').value = '';
-                alert('Message scheduled successfully!');
+                alert(data.message || 'Message scheduled successfully!');
+            } else {
+                throw new Error(data.error || `HTTP error! status: ${response.status}`);
             }
         } catch (error) {
             console.error('Error scheduling message:', error);
+            alert(`Failed to schedule message: ${error.message}`);
         }
     });
 
@@ -776,24 +807,55 @@
         const message = document.getElementById('scheduled-message-mobile').value;
         const time = document.getElementById('scheduled-time-mobile').value;
 
+        if (!message || !time) {
+            alert('Please enter both a message and a scheduled time');
+            return;
+        }
+
+        // Check if the scheduled time is in the past
+        const scheduledTime = new Date(time);
+        const now = new Date();
+        if (scheduledTime <= now) {
+            alert('Cannot schedule messages in the past');
+            return;
+        }
+
         try {
+            console.log('Scheduling message (mobile):', message, 'for time:', time);
+            
             const response = await fetch(`/room/${roomId}/schedule/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: `content=${encodeURIComponent(message)}&scheduled_time=${encodeURIComponent(time)}`
             });
+            
+            const responseText = await response.text();
+            console.log('Schedule response (mobile):', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (error) {
+                console.error('Error parsing response:', error);
+                throw new Error('Invalid server response');
+            }
+            
             if (response.ok) {
                 document.getElementById('scheduled-message-mobile').value = '';
                 document.getElementById('scheduled-time-mobile').value = '';
-                alert('Message scheduled successfully!');
+                alert(data.message || 'Message scheduled successfully!');
                 // Close the mobile menu after scheduling
                 document.querySelector('.navbar-collapse').classList.remove('show');
+            } else {
+                throw new Error(data.error || `HTTP error! status: ${response.status}`);
             }
         } catch (error) {
             console.error('Error scheduling message:', error);
+            alert(`Failed to schedule message: ${error.message}`);
         }
     });
 
@@ -849,6 +911,64 @@
     messageList.addEventListener('touchstart', handleTouchStart, { passive: false });
     messageList.addEventListener('touchmove', handleTouchMove, { passive: false });
     messageList.addEventListener('touchend', handleTouchEnd);
+
+    // Initialize datetime-local inputs with current time + 5 minutes
+    function initDateTimeInputs() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 5); // Add 5 minutes
+        
+        // Format as YYYY-MM-DDThh:mm
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        // Set min and default values for desktop
+        const desktopInput = document.getElementById('scheduled-time');
+        if (desktopInput) {
+            desktopInput.min = formattedDateTime;
+            desktopInput.value = formattedDateTime;
+        }
+        
+        // Set min and default values for mobile
+        const mobileInput = document.getElementById('scheduled-time-mobile');
+        if (mobileInput) {
+            mobileInput.min = formattedDateTime;
+            mobileInput.value = formattedDateTime;
+        }
+    }
+    
+    // Initialize datetime inputs when page loads
+    initDateTimeInputs();
+    
+    // Update min datetime every minute
+    setInterval(() => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 5); // Add 5 minutes
+        
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        
+        const formattedDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        const desktopInput = document.getElementById('scheduled-time');
+        if (desktopInput && !desktopInput.value) {
+            desktopInput.min = formattedDateTime;
+            desktopInput.value = formattedDateTime;
+        }
+        
+        const mobileInput = document.getElementById('scheduled-time-mobile');
+        if (mobileInput && !mobileInput.value) {
+            mobileInput.min = formattedDateTime;
+            mobileInput.value = formattedDateTime;
+        }
+    }, 60000); // Update every minute
 </script>
 
 <style>
