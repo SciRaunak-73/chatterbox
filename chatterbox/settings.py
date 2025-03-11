@@ -191,6 +191,10 @@ LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
 
+# Data Retention Settings
+# Number of days to keep messages before automatic cleanup (default: 30 days)
+DATA_RETENTION_DAYS = int(os.getenv('DATA_RETENTION_DAYS', 30))
+
 # Cron Jobs
 CRONJOBS = [
     ('* * * * *', 'django.core.management.call_command', ['send_scheduled_messages']),

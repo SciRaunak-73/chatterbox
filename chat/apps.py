@@ -2,6 +2,11 @@ from django.apps import AppConfig
 import threading
 import time
 import os
+import subprocess
+import logging
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 class ChatConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
@@ -9,6 +14,7 @@ class ChatConfig(AppConfig):
 
     def ready(self):
         if os.environ.get('RUN_MAIN'):  # Only run in the main process
+            # Start the scheduled messages thread
             def check_scheduled_messages():
                 while True:
                     try:
@@ -54,6 +60,42 @@ class ChatConfig(AppConfig):
                         print(f"Error checking scheduled messages: {e}")
                     
                     time.sleep(5)  # Check every 5 seconds
-
-            thread = threading.Thread(target=check_scheduled_messages, daemon=True)
-            thread.start()
+            
+            # Start the data cleanup thread
+            def run_data_cleanup():
+                while True:
+                    try:
+                        # Run cleanup at midnight
+                        now = datetime.now()
+                        # Calculate seconds until midnight
+                        seconds_until_midnight = (
+                            ((24 - now.hour - 1) * 60 * 60) +  # Hours until midnight
+                            ((60 - now.minute - 1) * 60) +     # Minutes until next hour
+                            (60 - now.second)                   # Seconds until next minute
+                        )
+                        
+                        # Sleep until midnight
+                        time.sleep(seconds_until_midnight)
+                        
+                        # Run the cleanup command (default 30 days retention)
+                        from django.core.management import call_command
+                        logger.info("Running scheduled data cleanup")
+                        
+                        # Use the retention days from settings
+                        from django.conf import settings
+                        retention_days = getattr(settings, 'DATA_RETENTION_DAYS', 30)
+                        logger.info(f"Running data cleanup with {retention_days} days retention period")
+                        call_command('cleanup_old_messages', days=retention_days)
+                        
+                        # Sleep for a day to avoid running multiple times
+                        time.sleep(60)  # Sleep for a minute to avoid running twice at midnight
+                    except Exception as e:
+                        logger.error(f"Error running data cleanup: {e}")
+                        time.sleep(3600)  # Sleep for an hour if there's an error
+            
+            # Start the threads
+            scheduled_messages_thread = threading.Thread(target=check_scheduled_messages, daemon=True)
+            scheduled_messages_thread.start()
+            
+            cleanup_thread = threading.Thread(target=run_data_cleanup, daemon=True)
+            cleanup_thread.start()
