@@ -1,0 +1,912 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ room.name }} - ChatterBox{% endblock %}
+
+{% block content %}
+<!-- Add Modal for Image Preview -->
+<div class="modal fade" id="imagePreviewModal" tabindex="-1" aria-labelledby="imagePreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <a id="downloadImageBtn" href="#" download class="btn btn-outline-light btn-sm ms-2">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+            <div class="modal-body p-0">
+                <img id="previewImage" src="" class="img-fluid w-100" alt="Preview">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-9">
+        <div class="chat-container">
+            <div class="message-list" id="message-list">
+                {% for message in messages %}
+                    <div class="message {% if message.sender == user %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}">
+                        <div class="message-header">
+                            <small class="text-muted">{{ message.sender.username }}</small>
+                            {% if message.reply_to %}
+                                <div class="replied-message">
+                                    <small class="text-muted">Replying to {{ message.reply_to.sender.username }}</small>
+                                    <p class="mb-0">{{ message.reply_to.content|truncatechars:50 }}</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="message-content" onclick="showMessageOptions(this)">
+                            {% if message.message_type == 'text' %}
+                                <p class="mb-0">{{ message.content }}</p>
+                            {% elif message.message_type == 'image' and message.file %}
+                                {% if message.file.url %}
+                                    <img src="{{ message.file.url }}" class="img-fluid chat-image" alt="Shared image" onerror="this.onerror=null;this.src='/static/images/broken-image.png';">
+                                {% else %}
+                                    <p class="text-muted">[Image not available]</p>
+                                {% endif %}
+                            {% elif message.message_type == 'voice' and message.file %}
+                                {% if message.file.url %}
+                                    <audio controls>
+                                        <source src="{{ message.file.url }}" type="audio/mpeg">
+                                        Your browser does not support the audio element.
+                                    </audio>
+                                {% else %}
+                                    <p class="text-muted">[Voice message not available]</p>
+                                {% endif %}
+                            {% elif message.message_type == 'sticker' and message.file %}
+                                {% if message.file.url %}
+                                    <img src="{{ message.file.url }}" class="sticker" alt="Sticker" onerror="this.onerror=null;this.src='/static/images/broken-sticker.png';">
+                                {% else %}
+                                    <p class="text-muted">[Sticker not available]</p>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                        <div class="message-footer">
+                            <small class="text-muted">{{ message.created_at|date:"g:i A" }}</small>
+                        </div>
+                        <div class="message-options" style="display: none;">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="replyToMessage({{ message.id }}, '{{ message.sender.username }}')">
+                                <i class="fas fa-reply"></i> Reply
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <button id="scroll-to-bottom" class="btn btn-primary btn-sm rounded-circle" style="display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background-color: #fff; border: none; color: #007bff;">
+                <i class="fas fa-arrow-down"></i>
+            </button>
+            <div class="message-input">
+                <div id="reply-container" style="display: none;" class="bg-light p-2 mb-2 rounded">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Replying to <span id="reply-to-user"></span></small>
+                            <p class="mb-0" id="reply-preview"></p>
+                        </div>
+                        <button type="button" class="btn-close" onclick="cancelReply()"></button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <input type="text" id="message-text" class="form-control" placeholder="Type your message...">
+                    </div>
+                    <div class="col-auto">
+                        <button class="btn btn-primary" id="send-message">Send</button>
+                        <button class="btn btn-secondary" id="toggle-features">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="features-panel mt-3" style="display: none;">
+                    <div class="row">
+                        <div class="col">
+                            <input type="file" id="image-upload" accept="image/*" style="display: none;">
+                            <button class="btn btn-outline-primary btn-sm" onclick="document.getElementById('image-upload').click()">
+                                <i class="fas fa-image"></i> Image
+                            </button>
+                            
+                            <button class="btn btn-outline-primary btn-sm ms-2" id="voice-record">
+                                <i class="fas fa-microphone"></i> Voice
+                            </button>
+                            
+                            <button class="btn btn-outline-primary btn-sm ms-2" id="toggle-stickers">
+                                <i class="fas fa-smile"></i> Stickers
+                            </button>
+                        </div>
+                    </div>
+                    <div class="sticker-container mt-2" style="display: none;">
+                        {% for sticker in stickers %}
+                            <img src="{{ sticker.image.url }}" class="sticker" alt="{{ sticker.name }}" onclick="sendSticker('{{ sticker.image.url }}')">
+                        {% endfor %}
+                        <form id="sticker-upload-form" class="mt-2">
+                            <input type="file" name="sticker" accept="image/*" style="display: none;" id="sticker-upload">
+                            <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('sticker-upload').click()">
+                                <i class="fas fa-plus"></i> Add Sticker
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 d-none d-md-block">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Room Info</h5>
+            </div>
+            <div class="card-body">
+                <button id="invite-btn" class="btn btn-primary btn-sm mb-3">Invite Others</button>
+                <div id="invite-url" class="d-none">
+                    <div class="input-group mb-3">
+                        <input type="text" id="invite-link" class="form-control form-control-sm" readonly>
+                        <button class="btn btn-outline-secondary btn-sm" type="button" onclick="copyInviteLink()">Copy</button>
+                    </div>
+                </div>
+                <hr>
+                <a href="{% url 'diary_entry' room.id %}" class="btn btn-primary btn-sm">View Diary</a>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Schedule Message</h5>
+            </div>
+            <div class="card-body">
+                <form id="schedule-form">
+                    <div class="mb-3">
+                        <input type="text" class="form-control" id="scheduled-message" placeholder="Message">
+                    </div>
+                    <div class="mb-3">
+                        <input type="datetime-local" class="form-control" id="scheduled-time">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Schedule</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const roomId = {{ room.id }};
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let lastMessageCount = 0;
+    let userHasScrolled = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let currentSwipedMessage = null;
+    
+    // Initialize image preview modal
+    const imagePreviewModal = new bootstrap.Modal(document.getElementById('imagePreviewModal'));
+    const previewImage = document.getElementById('previewImage');
+    const messageList = document.getElementById('message-list');
+    const scrollToBottomBtn = document.getElementById('scroll-to-bottom');
+
+    function isAtBottom() {
+        const threshold = 100; // pixels from bottom to consider "at bottom"
+        return messageList.scrollHeight - messageList.clientHeight - messageList.scrollTop <= threshold;
+    }
+
+    function scrollToBottom(force = false) {
+        if (force || !userHasScrolled || isAtBottom()) {
+            messageList.scrollTop = messageList.scrollHeight;
+        }
+    }
+
+    // Show/hide scroll button based on scroll position
+    messageList.addEventListener('scroll', () => {
+        userHasScrolled = true;
+        scrollToBottomBtn.style.display = isAtBottom() ? 'none' : 'block';
+    });
+
+    // Scroll to bottom when button is clicked
+    scrollToBottomBtn.addEventListener('click', () => {
+        scrollToBottom(true);
+        userHasScrolled = false;
+    });
+
+    function formatTime(date) {
+        return new Date(date).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function appendMessage(message) {
+        const wasAtBottom = isAtBottom();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${message.sender === '{{ user.username }}' ? 'sent' : 'received'}`;
+        
+        const senderSpan = document.createElement('small');
+        senderSpan.className = 'text-muted';
+        senderSpan.textContent = message.sender;
+        messageDiv.appendChild(senderSpan);
+
+        if (message.type === 'text') {
+            const content = document.createElement('p');
+            content.className = 'mb-0';
+            content.textContent = message.content;
+            messageDiv.appendChild(content);
+        } else if ((message.type === 'image' || message.type === 'sticker') && message.file_url) {
+            const img = document.createElement('img');
+            img.src = message.file_url;
+            img.className = message.type === 'sticker' ? 'sticker' : 'img-fluid chat-image';
+            img.alt = message.type === 'sticker' ? 'Sticker' : 'Shared image';
+            if (message.type === 'image') {
+                img.style.cursor = 'pointer';
+                img.onclick = function() {
+                    previewImage.src = this.src;
+                    imagePreviewModal.show();
+                };
+            }
+            img.onerror = function() {
+                this.onerror = null;
+                const errorText = document.createElement('p');
+                errorText.className = 'text-muted';
+                errorText.textContent = message.type === 'sticker' ? '[Sticker not available]' : '[Image not available]';
+                this.parentNode.replaceChild(errorText, this);
+            };
+            messageDiv.appendChild(img);
+        } else if (message.type === 'voice' && message.file_url) {
+            const audio = document.createElement('audio');
+            audio.controls = true;
+            const source = document.createElement('source');
+            source.src = message.file_url;
+            source.type = 'audio/mpeg';
+            audio.appendChild(source);
+            audio.onerror = function() {
+                const errorText = document.createElement('p');
+                errorText.className = 'text-muted';
+                errorText.textContent = '[Voice message not available]';
+                this.parentNode.replaceChild(errorText, this);
+            };
+            messageDiv.appendChild(audio);
+        } else {
+            // Handle missing media
+            const errorText = document.createElement('p');
+            errorText.className = 'text-muted';
+            errorText.textContent = `[${message.type} not available]`;
+            messageDiv.appendChild(errorText);
+        }
+
+        const timeSpan = document.createElement('small');
+        timeSpan.className = 'text-muted';
+        timeSpan.textContent = formatTime(message.created_at);
+        messageDiv.appendChild(timeSpan);
+
+        messageList.appendChild(messageDiv);
+        if (wasAtBottom) {
+            scrollToBottom();
+        }
+    }
+
+    // Add click handler for existing images
+    document.addEventListener('DOMContentLoaded', function() {
+        const downloadBtn = document.getElementById('downloadImageBtn');
+        
+        document.querySelectorAll('.chat-image').forEach(img => {
+            img.style.cursor = 'pointer';
+            img.onclick = function() {
+                previewImage.src = this.src;
+                downloadBtn.href = this.src;
+                downloadBtn.download = this.src.split('/').pop();
+                imagePreviewModal.show();
+            };
+        });
+
+        // Close message options when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.message-content')) {
+                document.querySelectorAll('.message-options').forEach(opt => opt.style.display = 'none');
+            }
+        });
+    });
+
+    // Add these new functions for message tagging/replying
+    let currentReplyTo = null;
+
+    function showMessageOptions(element) {
+        // Hide all other message options first
+        document.querySelectorAll('.message-options').forEach(opt => opt.style.display = 'none');
+        // Show options for clicked message
+        const options = element.parentElement.querySelector('.message-options');
+        if (options) {
+            options.style.display = 'block';
+        }
+    }
+
+    function replyToMessage(messageId, senderUsername) {
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        const messageContent = messageElement.querySelector('.message-content').textContent.trim();
+        
+        document.getElementById('reply-container').style.display = 'block';
+        document.getElementById('reply-to-user').textContent = senderUsername;
+        document.getElementById('reply-preview').textContent = messageContent.substring(0, 50) + (messageContent.length > 50 ? '...' : '');
+        
+        currentReplyTo = messageId;
+        
+        // Focus on message input
+        document.getElementById('message-text').focus();
+    }
+
+    function cancelReply() {
+        document.getElementById('reply-container').style.display = 'none';
+        currentReplyTo = null;
+    }
+
+    // Modify the sendMessage function to include reply information
+    async function sendMessage(content, type = 'text', file = null) {
+        try {
+            let requestData;
+            let headers = {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'X-Requested-With': 'XMLHttpRequest'
+            };
+
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('type', type);
+                formData.append('content', content);
+                if (currentReplyTo) {
+                    formData.append('reply_to', currentReplyTo);
+                }
+                requestData = formData;
+            } else {
+                headers['Content-Type'] = 'application/json';
+                requestData = JSON.stringify({
+                    content: content,
+                    type: type,
+                    reply_to: currentReplyTo
+                });
+            }
+
+            const response = await fetch(`/room/${roomId}/send/`, {
+                method: 'POST',
+                headers: headers,
+                body: requestData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Message response:', data);  // Debug log
+
+            if (data.status === 'success') {
+                appendMessage({
+                    sender: '{{ user.username }}',
+                    content: content,
+                    type: type,
+                    file_url: data.file_url || null,
+                    created_at: new Date()
+                });
+            } else {
+                throw new Error(data.error || 'Failed to send message');
+            }
+
+            // Clear reply after sending
+            cancelReply();
+        } catch (error) {
+            console.error('Error sending message:', error);
+            if (type !== 'text') {
+                alert('Failed to send message. Please try again.');
+            }
+        }
+    }
+
+    document.getElementById('send-message').addEventListener('click', () => {
+        const input = document.getElementById('message-text');
+        const content = input.value.trim();
+        if (content) {
+            sendMessage(content);
+            input.value = '';
+        }
+    });
+
+    document.getElementById('message-text').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('send-message').click();
+        }
+    });
+
+    document.getElementById('toggle-features').addEventListener('click', () => {
+        const featuresPanel = document.querySelector('.features-panel');
+        featuresPanel.style.display = featuresPanel.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('toggle-stickers').addEventListener('click', () => {
+        const stickerContainer = document.querySelector('.sticker-container');
+        stickerContainer.style.display = stickerContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('image-upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            try {
+                console.log('Starting file upload:', file.name);  // Debug log
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('type', 'image');
+                formData.append('content', file.name);
+
+                const response = await fetch(`/room/${roomId}/send/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+
+                const responseText = await response.text();
+                console.log('Server response text:', responseText);  // Debug log
+
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (error) {
+                    console.error('Error parsing response:', error);
+                    throw new Error('Invalid server response');
+                }
+
+                if (!response.ok) {
+                    throw new Error(data.error || `HTTP error! status: ${response.status}`);
+                }
+
+                console.log('Upload response:', data);  // Debug log
+
+                if (data.status === 'success' && data.file_url) {
+                    appendMessage({
+                        sender: '{{ user.username }}',
+                        content: file.name,
+                        type: 'image',
+                        file_url: data.file_url,
+                        created_at: new Date()
+                    });
+                } else {
+                    throw new Error(data.error || 'Failed to upload image');
+                }
+            } catch (error) {
+                console.error('Error uploading image:', error);
+                alert(`Failed to upload image: ${error.message}`);
+            }
+            e.target.value = '';  // Clear the file input
+        }
+    });
+
+    document.getElementById('voice-record').addEventListener('click', async () => {
+        if (!mediaRecorder) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+
+                mediaRecorder.addEventListener('dataavailable', (e) => {
+                    audioChunks.push(e.data);
+                });
+
+                mediaRecorder.addEventListener('stop', async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/mpeg' });
+                    await sendMessage('Voice message', 'voice', audioBlob);
+                    mediaRecorder = null;
+                    audioChunks = [];
+                });
+
+                mediaRecorder.start();
+                document.getElementById('voice-record').innerHTML = '<i class="fas fa-stop"></i> Stop';
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+            }
+        } else {
+            mediaRecorder.stop();
+            document.getElementById('voice-record').innerHTML = '<i class="fas fa-microphone"></i> Voice';
+        }
+    });
+
+    document.getElementById('sticker-upload').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('name', file.name);
+            formData.append('image', file);
+
+            try {
+                const response = await fetch('/stickers/upload/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                    },
+                    body: formData
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            } catch (error) {
+                console.error('Error uploading sticker:', error);
+            }
+        }
+    });
+
+    document.getElementById('schedule-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = document.getElementById('scheduled-message').value;
+        const time = document.getElementById('scheduled-time').value;
+
+        try {
+            const response = await fetch(`/room/${roomId}/schedule/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: `content=${encodeURIComponent(message)}&scheduled_time=${encodeURIComponent(time)}`
+            });
+            if (response.ok) {
+                document.getElementById('scheduled-message').value = '';
+                document.getElementById('scheduled-time').value = '';
+                alert('Message scheduled successfully!');
+            }
+        } catch (error) {
+            console.error('Error scheduling message:', error);
+        }
+    });
+
+    function sendSticker(url) {
+        sendMessage(url, 'sticker');
+    }
+
+    // Modify the periodic fetch to preserve scroll position
+    setInterval(async () => {
+        try {
+            const response = await fetch(`/room/${roomId}/messages/`);
+            const data = await response.json();
+            
+            // Only update if there are new messages
+            if (data.messages.length !== lastMessageCount) {
+                const wasAtBottom = isAtBottom();
+                const messageList = document.getElementById('message-list');
+                messageList.innerHTML = '';
+                data.messages.forEach(appendMessage);
+                lastMessageCount = data.messages.length;
+                
+                if (wasAtBottom) {
+                    scrollToBottom();
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
+    }, 5000);
+
+    // Initial scroll to bottom and message count
+    scrollToBottom(true);
+    lastMessageCount = document.querySelectorAll('.message').length;
+
+    // Invite functionality
+    document.getElementById('invite-btn').addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/room/${roomId}/invite/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                const inviteUrlDiv = document.getElementById('invite-url');
+                const inviteLinkInput = document.getElementById('invite-link');
+                inviteUrlDiv.classList.remove('d-none');
+                inviteLinkInput.value = data.invite_url;
+            }
+        } catch (error) {
+            console.error('Error generating invite:', error);
+        }
+    });
+
+    function copyInviteLink() {
+        const inviteLinkInput = document.getElementById('invite-link');
+        inviteLinkInput.select();
+        document.execCommand('copy');
+        alert('Invite link copied to clipboard!');
+    }
+
+    // Invite functionality for mobile
+    document.getElementById('invite-btn-mobile')?.addEventListener('click', async () => {
+        try {
+            const response = await fetch(`/room/${roomId}/invite/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                const inviteUrlDiv = document.getElementById('invite-url-mobile');
+                const inviteLinkInput = document.getElementById('invite-link-mobile');
+                inviteUrlDiv.classList.remove('d-none');
+                inviteLinkInput.value = data.invite_url;
+            }
+        } catch (error) {
+            console.error('Error generating invite:', error);
+        }
+    });
+
+    function copyInviteLinkMobile() {
+        const inviteLinkInput = document.getElementById('invite-link-mobile');
+        inviteLinkInput.select();
+        document.execCommand('copy');
+        alert('Invite link copied to clipboard!');
+    }
+
+    // Schedule message functionality for mobile
+    document.getElementById('schedule-form-mobile')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = document.getElementById('scheduled-message-mobile').value;
+        const time = document.getElementById('scheduled-time-mobile').value;
+
+        try {
+            const response = await fetch(`/room/${roomId}/schedule/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}',
+                },
+                body: `content=${encodeURIComponent(message)}&scheduled_time=${encodeURIComponent(time)}`
+            });
+            if (response.ok) {
+                document.getElementById('scheduled-message-mobile').value = '';
+                document.getElementById('scheduled-time-mobile').value = '';
+                alert('Message scheduled successfully!');
+                // Close the mobile menu after scheduling
+                document.querySelector('.navbar-collapse').classList.remove('show');
+            }
+        } catch (error) {
+            console.error('Error scheduling message:', error);
+        }
+    });
+
+    function handleTouchStart(e) {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+    }
+
+    function handleTouchMove(e) {
+        if (!touchStartX || !touchStartY) return;
+
+        const touch = e.touches[0];
+        const deltaX = touchStartX - touch.clientX;
+        const deltaY = touchStartY - touch.clientY;
+
+        // If horizontal swipe is greater than vertical and moving left to right
+        if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX < 0) {
+            e.preventDefault(); // Prevent scrolling
+            const message = e.target.closest('.message');
+            if (message) {
+                const swipeAmount = Math.min(Math.abs(deltaX), 100);
+                message.style.transform = `translateX(${swipeAmount}px)`;
+                message.style.transition = 'none';
+                currentSwipedMessage = message;
+            }
+        }
+    }
+
+    function handleTouchEnd(e) {
+        if (!currentSwipedMessage) return;
+
+        const touch = e.changedTouches[0];
+        const deltaX = touchStartX - touch.clientX;
+
+        if (deltaX < -50) { // If swiped right more than 50px
+            const messageId = currentSwipedMessage.dataset.messageId;
+            const senderUsername = currentSwipedMessage.querySelector('.message-header small').textContent;
+            replyToMessage(messageId, senderUsername);
+        }
+
+        // Reset message position with smooth animation
+        currentSwipedMessage.style.transform = 'translateX(0)';
+        currentSwipedMessage.style.transition = 'transform 0.3s ease-out';
+        
+        // Reset variables
+        touchStartX = 0;
+        touchStartY = 0;
+        currentSwipedMessage = null;
+    }
+
+    // Add touch event listeners to message list
+    messageList.addEventListener('touchstart', handleTouchStart, { passive: false });
+    messageList.addEventListener('touchmove', handleTouchMove, { passive: false });
+    messageList.addEventListener('touchend', handleTouchEnd);
+</script>
+
+<style>
+    .chat-image {
+        max-width: 200px;
+        border-radius: 8px;
+        transition: transform 0.2s;
+    }
+    
+    .chat-image:hover {
+        transform: scale(1.05);
+    }
+
+    #imagePreviewModal .modal-content {
+        background-color: transparent;
+        border: none;
+    }
+
+    #imagePreviewModal .modal-body {
+        padding: 0;
+    }
+
+    #previewImage {
+        max-height: 90vh;
+        object-fit: contain;
+    }
+
+    .btn-close-white {
+        filter: brightness(0) invert(1);
+    }
+
+    .message {
+        position: relative;
+        margin-bottom: 1rem;
+        transform: translateX(0);
+        transition: transform 0.3s ease-out;
+        touch-action: pan-y pinch-zoom;
+    }
+
+    .message::after {
+        content: '\f3e5'; /* Font Awesome reply icon */
+        font-family: 'Font Awesome 5 Free';
+        font-weight: 900;
+        position: absolute;
+        left: -30px;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0;
+        transition: opacity 0.3s ease-out;
+        color: #007bff;
+    }
+
+    .message[style*="translateX"] {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    .message[style*="translateX"]::after {
+        opacity: 1;
+    }
+
+    .message-content {
+        cursor: pointer;
+    }
+
+    .message audio {
+        max-width: 250px;
+        height: 35px;
+        margin: 5px 0;
+    }
+
+    @media (max-width: 768px) {
+        .message audio {
+            max-width: 200px;
+            height: 30px;
+        }
+    }
+
+    .message-options {
+        position: absolute;
+        right: 0;
+        bottom: 100%;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 0.5rem;
+        z-index: 1000;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        margin-bottom: 5px;
+    }
+
+    /* Style the audio player for a modern look */
+    audio {
+        filter: grayscale(1);
+        background-color: #f8f9fa;
+        border-radius: 20px;
+    }
+
+    audio::-webkit-media-controls-panel {
+        background-color: #f8f9fa;
+    }
+
+    audio::-webkit-media-controls-current-time-display,
+    audio::-webkit-media-controls-time-remaining-display {
+        color: #6c757d;
+    }
+
+    audio::-webkit-media-controls-timeline {
+        border-radius: 10px;
+    }
+
+    audio::-webkit-media-controls-play-button,
+    audio::-webkit-media-controls-mute-button {
+        filter: grayscale(1);
+    }
+
+    .replied-message {
+        background: rgba(0,0,0,0.05);
+        padding: 0.5rem;
+        border-left: 3px solid #007bff;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+    }
+
+    #reply-container {
+        border-left: 3px solid #007bff;
+    }
+
+    .message-header, .message-footer {
+        padding: 0.25rem 0;
+    }
+
+    #imagePreviewModal .modal-header {
+        position: absolute;
+        top: 0;
+        right: 0;
+        z-index: 1;
+        background: rgba(0,0,0,0.5);
+        width: 100%;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        .replied-message {
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+        }
+
+        .replied-message .text-muted {
+            color: #adb5bd !important;
+        }
+
+        #reply-container {
+            background: rgba(0,0,0,0.7) !important;
+            color: #fff;
+        }
+
+        #reply-container .text-muted {
+            color: #adb5bd !important;
+        }
+
+        #reply-container .btn-close {
+            filter: invert(1);
+        }
+
+        #scroll-to-bottom {
+            background-color: #343a40;
+            color: #fff;
+        }
+
+        #scroll-to-bottom:hover {
+            background-color: #495057;
+        }
+
+        .message-options {
+            background-color: #343a40;
+            border-color: #495057;
+        }
+
+        .message-options .btn-outline-secondary {
+            color: #fff;
+            border-color: #6c757d;
+        }
+
+        .message-options .btn-outline-secondary:hover {
+            background-color: #6c757d;
+            color: #fff;
+        }
+    }
+</style>
+{% endblock %} 

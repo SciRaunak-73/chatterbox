@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block title %}Schedule Message - {{ room.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Schedule a Message</h4>
+                    <small class="text-muted">Current time: <span id="current-time"></span></small>
+                </div>
+                <div class="card-body">
+                    {% if error %}
+                        <div class="alert alert-danger">
+                            {{ error }}
+                        </div>
+                    {% endif %}
+                    <form id="schedule-form" method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Message</label>
+                            <textarea class="form-control" id="content" name="content" rows="3" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduled_time" class="form-label">When to Send (Your Local Time)</label>
+                            <input type="datetime-local" class="form-control" id="scheduled_time" name="scheduled_time" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Schedule Message</button>
+                        <a href="{% url 'chat_room' room.id %}" class="btn btn-secondary">Back to Chat</a>
+                    </form>
+                </div>
+            </div>
+
+            {% if scheduled_messages %}
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="mb-0">Scheduled Messages</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="list-group">
+                            {% for message in scheduled_messages %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ message.content }}</h6>
+                                        <small class="text-muted">{{ message.scheduled_time|date:"F j, Y g:i A" }}</small>
+                                    </div>
+                                    <small class="text-muted">Scheduled by {{ message.sender.username }}</small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Update current time display
+    function updateCurrentTime() {
+        const now = new Date();
+        document.getElementById('current-time').textContent = now.toLocaleTimeString();
+    }
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+
+    // Set minimum datetime to now
+    const datetimeInput = document.getElementById('scheduled_time');
+    function updateMinDateTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Convert to local time
+        datetimeInput.min = now.toISOString().slice(0, 16);
+    }
+    updateMinDateTime();
+    setInterval(updateMinDateTime, 60000);
+
+    // Form submission handling
+    const form = document.getElementById('schedule-form');
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const scheduledTime = new Date(formData.get('scheduled_time'));
+        const now = new Date();
+
+        if (scheduledTime <= now) {
+            alert('Cannot schedule messages in the past');
+            return;
+        }
+
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(data.error || 'Failed to schedule message');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Failed to schedule message');
+        }
+    });
+});
+</script>
+{% endblock %} 

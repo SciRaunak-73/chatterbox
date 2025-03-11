@@ -1,0 +1,350 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}ChatterBox{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{% static 'css/themes.css' %}" rel="stylesheet">
+    <style>
+        .chat-container {
+            height: 80vh;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            background-color: var(--card-bg);
+        }
+
+        .message-list {
+            height: calc(100% - 100px);
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 70%;
+            color: var(--text-color);
+        }
+
+        .message.sent {
+            background-color: var(--message-own-bg);
+            margin-left: auto;
+        }
+
+        .message.received {
+            background-color: var(--message-bg);
+        }
+
+        .message-input {
+            padding: 20px;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .sticker-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .sticker {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .sticker:hover {
+            transform: scale(1.1);
+        }
+
+        .diary-entry {
+            background-color: var(--card-bg);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        /* Dropdown menu styles */
+        .dropdown-menu {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+        }
+
+        .dropdown-item {
+            color: var(--text-color);
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--hover-bg);
+            color: var(--text-color);
+        }
+
+        .dropdown-divider {
+            border-color: var(--border-color);
+        }
+
+        /* Menu button styles */
+        .menu-btn {
+            background: none;
+            border: none;
+            color: var(--nav-text);
+            padding: 0.5rem;
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+
+        .menu-btn:hover {
+            opacity: 0.8;
+        }
+
+        /* Navbar styles */
+        .navbar {
+            background-color: var(--nav-bg) !important;
+        }
+
+        .navbar-brand, .nav-link {
+            color: var(--text-color) !important;
+        }
+
+        .nav-link:hover {
+            color: var(--link-color) !important;
+        }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            padding: 0.5rem;
+            cursor: pointer;
+        }
+
+        .theme-toggle:hover {
+            color: var(--link-color);
+        }
+
+        /* Form input styles */
+        .form-control {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border: 1px solid var(--border-color) !important;
+        }
+
+        .form-control::placeholder {
+            color: var(--text-muted) !important;
+        }
+
+        /* Override Bootstrap's form focus styles */
+        .form-control:focus {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+            box-shadow: 0 0 0 0.25rem var(--focus-shadow) !important;
+        }
+
+        /* Mobile menu styles */
+        @media (max-width: 991.98px) {
+            .navbar-collapse {
+                position: fixed;
+                top: 70px;
+                left: 0;
+                right: 0;
+                background-color: var(--card-bg);
+                padding: 1rem;
+                border-radius: 0.5rem;
+                box-shadow: 0 2px 4px var(--shadow-color);
+                margin: 0.5rem;
+                z-index: 1000;
+            }
+
+            .mobile-menu-divider {
+                border-color: var(--border-color);
+                margin: 0.5rem 0;
+            }
+
+            /* Mobile card styles */
+            .card-header {
+                background-color: #000000 !important;
+                padding: 1rem;
+            }
+
+            .card-header .card-title {
+                color: #ffffff !important;
+                margin: 0;
+            }
+
+            /* Mobile form input styles */
+            #scheduled-message-mobile,
+            #scheduled-time-mobile,
+            .form-control {
+                background-color: var(--card-bg) !important;
+                color: var(--text-color) !important;
+                border: 1px solid var(--border-color) !important;
+            }
+
+            #scheduled-message-mobile::placeholder,
+            .form-control::placeholder {
+                color: var(--text-muted) !important;
+            }
+
+            /* Override Bootstrap's form focus styles */
+            #scheduled-message-mobile:focus,
+            #scheduled-time-mobile:focus,
+            .form-control:focus {
+                background-color: var(--card-bg) !important;
+                color: var(--text-color) !important;
+                border-color: var(--border-color) !important;
+                box-shadow: 0 0 0 0.25rem var(--focus-shadow) !important;
+            }
+        }
+
+        /* Update nav-btn styles */
+        .nav-btn {
+            background-color: #000000;
+            border: none;
+            color: #ffffff;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .nav-btn:hover {
+            opacity: 0.9;
+            background-color: #1a1a1a;
+        }
+
+        /* Card header styles */
+        .card-header {
+            background-color: #000000;
+        }
+
+        .card-header .card-title {
+            color: #ffffff;
+            margin: 0;
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg mb-4">
+        <div class="container">
+            <div class="d-flex align-items-center">
+                <button class="nav-btn me-2" onclick="history.back()">
+                    <i class="fas fa-arrow-left"></i> Back
+                </button>
+                <button class="nav-btn me-3" onclick="history.forward()">
+                    <i class="fas fa-arrow-right"></i> Next
+                </button>
+                <a class="navbar-brand" href="{% url 'home' %}">ChatterBox</a>
+            </div>
+
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    {% if user.is_authenticated %}
+                        {% if room.id %}
+                        <li class="nav-item d-lg-none">
+                            <hr class="mobile-menu-divider">
+                            <h6 class="px-3 mb-2">Room Actions</h6>
+                            <div class="px-3">
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Room Info</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <button id="invite-btn-mobile" class="btn btn-primary w-100 mb-2">
+                                            <i class="fas fa-user-plus me-2"></i>Invite Others
+                                        </button>
+                                        <div id="invite-url-mobile" class="d-none">
+                                            <div class="input-group mb-2">
+                                                <input type="text" id="invite-link-mobile" class="form-control" readonly>
+                                                <button class="btn btn-outline-secondary" type="button" onclick="copyInviteLinkMobile()">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <a href="{% url 'diary_entry' room.id %}" class="btn btn-primary w-100">
+                                            <i class="fas fa-book me-2"></i>View Diary
+                                        </a>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="card-title mb-0">Schedule Message</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <form id="schedule-form-mobile">
+                                            <div class="mb-2">
+                                                <input type="text" class="form-control" id="scheduled-message-mobile" placeholder="Type your message...">
+                                            </div>
+                                            <div class="mb-2">
+                                                <input type="datetime-local" class="form-control" id="scheduled-time-mobile">
+                                            </div>
+                                            <button type="submit" class="btn btn-primary w-100">
+                                                <i class="fas fa-clock me-2"></i>Schedule Message
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            <hr class="mobile-menu-divider">
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'create_room' %}">
+                                <i class="fas fa-plus-circle me-2"></i>New Chat
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link theme-toggle" onclick="toggleTheme()">
+                                <i id="theme-icon" class="fas fa-moon me-2"></i>Theme
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'logout' %}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <button class="btn nav-link theme-toggle" onclick="toggleTheme()">
+                                <i id="theme-icon" class="fas fa-moon"></i>
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'login' %}">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'register' %}">Register</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/theme.js' %}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

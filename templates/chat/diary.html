@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Diary - {{ room.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">Write a New Entry</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" name="title" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="content" class="form-label">Content</label>
+                            <textarea class="form-control" id="content" name="content" rows="5" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save Entry</button>
+                        <a href="{% url 'chat_room' room.id %}" class="btn btn-secondary">Back to Chat</a>
+                    </form>
+                </div>
+            </div>
+
+            <h4 class="mb-3">Previous Entries</h4>
+            {% for entry in entries %}
+                <div class="diary-entry">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">{{ entry.title }}</h5>
+                        <small class="text-muted">
+                            {{ entry.created_at|date:"F j, Y g:i A" }} by {{ entry.author.username }}
+                        </small>
+                    </div>
+                    <p class="mb-0">{{ entry.content }}</p>
+                </div>
+            {% empty %}
+                <p class="text-muted">No diary entries yet. Be the first to write one!</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

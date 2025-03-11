@@ -1,0 +1,332 @@
+:root {
+    /* Light theme variables */
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --nav-bg: #6c5ce7;
+    --nav-text: #ffffff;
+    --nav-text-hover: #ffffff;
+    --card-bg: #ffffff;
+    --border-color: #dee2e6;
+    --link-color: #007bff;
+    --hover-bg: #f8f9fa;
+    --message-bg: #e9ecef;
+    --message-own-bg: #d4edda;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --input-bg: #ffffff;
+    --input-text: #333333;
+    --dropdown-text: #333333;
+    --dropdown-hover: #f8f9fa;
+}
+
+[data-theme="dark"] {
+    /* Dark theme variables */
+    --bg-color: #1a1a1a;
+    --text-color: #ffffff;
+    --nav-bg: #6c5ce7;
+    --nav-text: #ffffff;
+    --nav-text-hover: #ffffff;
+    --card-bg: #2d2d2d;
+    --border-color: #404040;
+    --link-color: #66b0ff;
+    --hover-bg: #3d3d3d;
+    --message-bg: #383838;
+    --message-own-bg: #2d4a3e;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --input-bg: #2d2d2d;
+    --input-text: #ffffff;
+    --dropdown-text: #ffffff;
+    --dropdown-hover: #3d3d3d;
+}
+
+/* Apply theme variables */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.navbar {
+    background-color: var(--nav-bg) !important;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.navbar-brand, .nav-link {
+    color: var(--nav-text) !important;
+}
+
+.nav-link:hover {
+    color: var(--nav-text-hover) !important;
+    opacity: 0.8;
+}
+
+.card {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.list-group-item {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.message {
+    background-color: var(--message-bg);
+    color: var(--text-color);
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.message.own {
+    background-color: var(--message-own-bg);
+}
+
+a {
+    color: var(--link-color);
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--nav-text-hover);
+}
+
+.btn-outline-primary {
+    color: var(--link-color);
+    border-color: var(--link-color);
+    transition: all 0.3s ease;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--link-color);
+    color: var(--bg-color);
+}
+
+.form-control {
+    background-color: var(--input-bg);
+    border-color: var(--border-color);
+    color: var(--input-text);
+}
+
+.form-control:focus {
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border-color: var(--link-color);
+    box-shadow: 0 0 0 0.2rem var(--shadow-color);
+}
+
+/* Navbar toggler for mobile */
+.navbar-toggler {
+    border-color: var(--nav-text);
+}
+
+.navbar-toggler-icon {
+    background-image: none;
+    position: relative;
+}
+
+.navbar-toggler-icon::before {
+    content: "\f0c9";
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    color: var(--nav-text);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Theme toggle button in navbar */
+.theme-toggle {
+    color: var(--nav-text) !important;
+}
+
+.theme-toggle:hover {
+    opacity: 0.8;
+}
+
+/* Navigation buttons */
+.nav-btn {
+    color: var(--nav-text) !important;
+    border: 1px solid var(--nav-text);
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.25rem;
+    margin: 0 0.25rem;
+    transition: opacity 0.3s ease;
+}
+
+.nav-btn:hover {
+    opacity: 0.8;
+    text-decoration: none;
+}
+
+/* Dropdown menu styles */
+.dropdown-menu {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.dropdown-item {
+    color: var(--dropdown-text) !important;
+    transition: all 0.3s ease;
+}
+
+.dropdown-item:hover, .dropdown-item:focus {
+    background-color: var(--dropdown-hover);
+    color: var(--dropdown-text) !important;
+}
+
+.dropdown-divider {
+    border-color: var(--border-color);
+}
+
+/* Additional text color fixes for dark mode */
+h1, h2, h3, h4, h5, h6, p, span, div {
+    color: var(--text-color);
+}
+
+.modal-content {
+    background-color: var(--card-bg);
+    color: var(--text-color);
+}
+
+.modal-header, .modal-footer {
+    border-color: var(--border-color);
+}
+
+/* Table styles */
+table {
+    color: var(--text-color);
+}
+
+.table {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.table td, .table th {
+    border-color: var(--border-color);
+}
+
+/* Mobile menu styles */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        position: fixed;
+        top: 70px;
+        left: 0;
+        right: 0;
+        margin: 0 1rem;
+        background-color: var(--card-bg);
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 12px var(--shadow-color);
+        z-index: 1000;
+        max-height: calc(100vh - 90px);
+        overflow-y: auto;
+    }
+
+    .mobile-menu-divider {
+        border-color: var(--border-color);
+        opacity: 0.2;
+        margin: 0.75rem 0;
+    }
+
+    .navbar-nav .nav-link {
+        padding: 0.75rem 1rem;
+        border-radius: 0.375rem;
+        transition: background-color 0.2s ease;
+        color: var(--text-color) !important;
+    }
+
+    .navbar-nav .nav-link:hover {
+        background-color: var(--hover-bg);
+    }
+
+    .navbar-nav .nav-link i {
+        width: 1.5rem;
+        text-align: center;
+        margin-right: 0.5rem;
+    }
+
+    /* Mobile room actions styles */
+    .navbar-collapse .card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+    }
+
+    .navbar-collapse .card-header {
+        background-color: var(--hover-bg);
+        border-bottom: 1px solid var(--border-color);
+        padding: 0.75rem;
+    }
+
+    .navbar-collapse .card-body {
+        padding: 1rem;
+    }
+
+    .navbar-collapse .form-control {
+        background-color: var(--input-bg);
+        border-color: var(--border-color);
+        color: var(--input-text);
+        margin-bottom: 0.5rem;
+    }
+
+    .navbar-collapse .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+
+    /* Hamburger menu button */
+    .navbar-toggler {
+        border: none;
+        padding: 0.75rem;
+        margin-right: -0.75rem;
+    }
+
+    .navbar-toggler:focus {
+        box-shadow: none;
+    }
+
+    .navbar-toggler-icon {
+        background-image: none !important;
+        position: relative;
+        width: 1.5em;
+        height: 1.5em;
+        color: var(--nav-text);
+    }
+
+    .navbar-toggler-icon::before {
+        content: "\f0c9";
+        font-family: "Font Awesome 5 Free";
+        font-weight: 900;
+        color: var(--nav-text);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.5rem;
+    }
+
+    /* Room actions section */
+    .navbar-collapse h6.text-muted {
+        color: var(--text-color) !important;
+        opacity: 0.7;
+        font-weight: 600;
+    }
+
+    .navbar-collapse .card-title {
+        color: var(--text-color);
+        font-size: 1rem;
+        font-weight: 600;
+    }
+
+    /* Fix for dark mode text */
+    .navbar-collapse input,
+    .navbar-collapse button,
+    .navbar-collapse .card-header,
+    .navbar-collapse .card-body {
+        color: var(--text-color) !important;
+    }
+} 

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - ChatterBox{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            {% if user.is_authenticated %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">Your Chat Rooms</h4>
+                        <a href="{% url 'create_room' %}" class="btn btn-primary btn-sm">Create New Room</a>
+                    </div>
+                    <div class="card-body">
+                        {% if rooms %}
+                            <div class="list-group">
+                                {% for room in rooms %}
+                                    <a href="{% url 'chat_room' room.id %}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h5 class="mb-1">{{ room.name }}</h5>
+                                            <small class="text-muted">{{ room.created_at|date:"F j, Y" }}</small>
+                                        </div>
+                                        <p class="mb-1">{{ room.participants.count }} participant{{ room.participants.count|pluralize }}</p>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <p class="text-muted">You haven't joined any chat rooms yet.</p>
+                            <a href="{% url 'create_room' %}" class="btn btn-primary">Create Your First Room</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <h1>Welcome to ChatterBox</h1>
+                    <p class="lead">A secure chat application with end-to-end encryption.</p>
+                    <div class="mt-4">
+                        <a href="{% url 'login' %}" class="btn btn-primary me-2">Login</a>
+                        <a href="{% url 'register' %}" class="btn btn-outline-primary">Register</a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
